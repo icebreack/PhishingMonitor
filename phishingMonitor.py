@@ -3,18 +3,27 @@ import simplejson
 import urllib.request
 import sys
 import time
+import getopt
 
-# API_KEY (virusTotal)
-API_KEY = ""
+
+def dprint(string):
+    global silent
+
+    if silent==False:
+        __builtins__.print("%s -- %s" % (time.ctime(), string))
+
+print = dprint
 
 def countdown(n):
+
     print('Aguardando 30 segundos para o proximo request')
+
     for i in reversed(range(0, 30)):
         time.sleep(1)
-        sys.stdout.write('#')
-        sys.stdout.flush()
 
 def firstRequestScan(url):
+    global API_KEY
+
     url_API = "https://www.virustotal.com/vtapi/v2/url/scan"
 
     # use /n para concatenar requests
@@ -26,20 +35,18 @@ def firstRequestScan(url):
     req = urllib.request.Request(url_API, data)
     response = urllib.request.urlopen(req)
     json_retorno_passo1 = response.read()
-
-
     dict_retorno_passo1 = simplejson.loads(json_retorno_passo1)
 
     texto_msg_retorno_consulta = dict_retorno_passo1.get('verbose_msg')
     texto_link_retorno_consulta = dict_retorno_passo1.get('permalink')
 
-    print(texto_link_retorno_consulta)
-
 def secondRequestScan(url):
-    #this is the VT url scan api link
+    global API_KEY
+
+    #
     url_API = 'https://www.virustotal.com/vtapi/v2/url/report'
 
-    #API parameters
+    #
     parameters = {'resource': url, 'apikey': API_KEY}
 
     #
@@ -65,16 +72,13 @@ def secondRequestScan(url):
 
     #
     print("")
-    resultsString = (url + ' verificado em ' + scanDate + ' contendo ' + ratio + ' problemas')
-    print(resultsString)
-    resultsOutput = url + ',' + ratio + ',' + permalink + '\n'
+    print(url + ' verificado em ' + scanDate + ' contendo ' + ratio + ' problemas')
     print("" + permalink)
 
     if int(PositivosHit) >= 1:
         global verificar
         verificar += (url + "|")
         print(verificar)
-        #print(resultsOutput)
     
     results = open(url.replace("/",".") + '_results.txt', 'w') 
     results.write('')
@@ -84,15 +88,35 @@ def secondRequestScan(url):
 
 def main(argv):
 
+    global API_KEY
+    global silent
+    silent = False
+
+    try:
+        opts, args = getopt.getopt(sys.argv[1:], "sf:")
+    except getopt.GetoptError as err:
+        print(err)
+        sys.exit(2)
+
+    for opt, arg in opts:
+        if opt in ('-s'):
+            silent = True
+        elif opt in ('-f'):
+            fileIP = arg
+        else:
+            sys.exit(2)
+
+
+
     with open('API.txt') as f:
-        API_KEY = f.read()
-    
+        API_KEY = f.read()    
     if API_KEY=='':
         print('No API_KEY was found in API.txt file')
         sys.exit(2)
 
 
-    fileIP = sys.argv[1]
+
+    #fileIP = sys.argv[1]
 
     global verificar     
     verificar = "|"
@@ -105,15 +129,16 @@ def main(argv):
     my_list = data.splitlines()
 
     # scaneia
-    for line in my_list:        
+    for line in my_list:
         print('----------------------------------------')
         print(line)
         firstRequestScan(line)
         countdown(10)
         secondRequestScan(line)
         print('----------------------------------------')
-    
-    print(verificar)
+
+    silent = False
+    print("Resultado: " + verificar)
 
 if __name__ == "__main__":
        main(sys.argv[1:])
